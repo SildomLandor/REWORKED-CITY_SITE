@@ -12,7 +12,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Arial', Helvetica, sans-serif;
             color: white;
             text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
         }
@@ -28,21 +28,21 @@
             background-position: center;
             background-repeat: no-repeat;
             transition: background-image 1s ease-in-out;
-            z-index: -1; /* Фон позади контента */
+            z-index: -2; /* Фон позади всего */
         }
 
-        /* Полупрозрачный слой для читаемости текста */
+        /* Затемняющий слой (ВОЗВРАЩЁН) */
         .overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.4);
-            z-index: 0;
+            background-color: rgba(0, 0, 0, 0.4); /* Полупрозрачный чёрный */
+            z-index: -1; /* Между фоном и контентом */
         }
 
-        /* Контейнер с информацией (можно настроить под себя) */
+        /* Контейнер с информацией */
         .content {
             position: relative;
             z-index: 1;
@@ -102,7 +102,7 @@
             }
         }
 
-        /* Адаптация для мобильных (но в игре не нужно, просто запас) */
+        /* Адаптация для мобильных */
         @media (max-width: 600px) {
             .server-name { font-size: 2.5rem; }
             .loading-text { font-size: 1.5rem; }
@@ -112,9 +112,11 @@
 </head>
 <body>
 
-    <!-- Слой фона (будет управляться скриптом) -->
+    <!-- Слой фона -->
     <div class="background" id="background"></div>
 
+    <!-- Затемняющий слой (ВОЗВРАЩЁН) -->
+    <div class="overlay"></div>
 
     <!-- Основной контент -->
     <div class="content">
@@ -130,27 +132,22 @@
     </div>
 
     <script>
-        // !!! ЗАМЕНИТЕ ЭТИ ССЫЛКИ НА СВОИ ФОТОГРАФИИ !!!
-        // Можно использовать относительные пути: "photo1.jpg", "images/background.jpg"
+        // Фотографии с именами index1.jpg – index4.jpg
         const imageUrls = [
-            "index1.png",   // первое фото
-            "index2.png",   // второе фото
+            "images/index1.jpg",
+            "images/index2.jpg",
+            "images/index3.jpg",
+            "images/index4.jpg"
         ];
 
-        // Индекс текущего изображения
         let currentIndex = 0;
         const bgElement = document.getElementById('background');
 
-        // Функция смены фона
         function changeBackground() {
-            // Устанавливаем новое изображение
             bgElement.style.backgroundImage = `url('${imageUrls[currentIndex]}')`;
-            
-            // Переход к следующему (циклически)
             currentIndex = (currentIndex + 1) % imageUrls.length;
         }
 
-        // Предзагрузка изображений (чтобы не было миганий)
         function preloadImages(urls) {
             urls.forEach(url => {
                 const img = new Image();
@@ -158,19 +155,13 @@
             });
         }
 
-        // Запуск: предзагрузка, установка первого фона и интервал смены
         if (imageUrls.length > 0) {
             preloadImages(imageUrls);
-            changeBackground(); // сразу показываем первое
-            // Меняем фон каждые 10 секунд (можно изменить интервал)
-            setInterval(changeBackground, 5000);
+            changeBackground();
+            setInterval(changeBackground, 10000); // меняем каждые 10 секунд
         } else {
-            // Если массив пуст, ставим заглушку
             bgElement.style.backgroundImage = "url('https://via.placeholder.com/1920x1080?text=No+Images')";
         }
     </script>
 </body>
 </html>
-
-
-
