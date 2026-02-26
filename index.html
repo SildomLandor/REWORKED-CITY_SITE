@@ -115,8 +115,6 @@
     <!-- Слой фона (будет управляться скриптом) -->
     <div class="background" id="background"></div>
 
-    <!-- Затемняющий оверлей -->
-    <div class="overlay"></div>
 
     <!-- Основной контент -->
     <div class="content">
@@ -165,7 +163,7 @@
             preloadImages(imageUrls);
             changeBackground(); // сразу показываем первое
             // Меняем фон каждые 10 секунд (можно изменить интервал)
-            setInterval(changeBackground, 10000);
+            setInterval(changeBackground, 5000);
         } else {
             // Если массив пуст, ставим заглушку
             bgElement.style.backgroundImage = "url('https://via.placeholder.com/1920x1080?text=No+Images')";
@@ -173,5 +171,6 @@
     </script>
 </body>
 </html>
+
 
 
