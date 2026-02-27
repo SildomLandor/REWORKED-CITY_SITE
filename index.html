@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Загрузка Garry's Mod</title>
     <style>
-        /* Сброс отступов, полноэкранный режим */
         html, body {
             margin: 0;
             padding: 0;
@@ -16,7 +15,6 @@
             text-shadow: 1px 1px 2px black;
         }
 
-        /* Фоновое слайд-шоу */
         .background {
             position: fixed;
             top: 0;
@@ -29,7 +27,6 @@
             z-index: -2;
         }
 
-        /* Лёгкое затемнение для читаемости текста */
         .overlay {
             position: fixed;
             top: 0;
@@ -40,34 +37,35 @@
             z-index: -1;
         }
 
-        /* Контейнер для нижней панели */
-        .bottom-panel {
+        /* Панель теперь не в самом низу, а с отступом снизу 25% */
+        .progress-panel {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            bottom: 25%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(5px);
             padding: 15px 20px;
-            box-sizing: border-box;
+            border-radius: 8px;
             text-align: center;
-            border-top: 1px solid rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
 
-        /* Имя текущего файла */
         .file-name {
-            font-size: 1.2rem;
-            margin-bottom: 8px;
-            color: #ddd;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: #fff;
             word-break: break-word;
         }
 
-        /* Полоска прогресса */
         .progress-container {
             width: 100%;
-            height: 8px;
+            height: 10px;
             background-color: rgba(255,255,255,0.2);
-            border-radius: 4px;
+            border-radius: 5px;
             overflow: hidden;
         }
 
@@ -75,13 +73,8 @@
             height: 100%;
             width: 0%;
             background: linear-gradient(90deg, #4facfe, #00f2fe);
-            border-radius: 4px;
+            border-radius: 5px;
             transition: width 0.2s ease;
-        }
-
-        /* Небольшой отступ снизу, чтобы текст не упирался в край */
-        body {
-            padding-bottom: 80px; /* место под панель */
         }
     </style>
 </head>
@@ -90,8 +83,7 @@
     <div class="background" id="background"></div>
     <div class="overlay"></div>
 
-    <!-- Нижняя панель с именем файла и прогрессом -->
-    <div class="bottom-panel">
+    <div class="progress-panel">
         <div class="file-name" id="fileName">Подключение...</div>
         <div class="progress-container">
             <div class="progress-bar" id="progressBar"></div>
@@ -115,28 +107,29 @@
             current = (current + 1) % images.length;
         }
 
-        // Предзагрузка изображений
         images.forEach(src => { new Image().src = src; });
 
         if (images.length) {
             nextBg();
-            setInterval(nextBg, 10000); // смена каждые 10 секунд
+            setInterval(nextBg, 10000);
         }
 
+        // ========== ОТЛАДКА В КОНСОЛИ ==========
+        // Эти сообщения помогут убедиться, что игра вызывает функции
+        console.log('Страница загрузки загружена. Ожидание вызовов от GMod...');
+
         // ========== ФУНКЦИИ ДЛЯ GARRY'S MOD ==========
-        // Обновление имени файла (игра вызывает DownloadingFile)
         window.DownloadingFile = function(fileName, progress, downloaded, total) {
+            console.log('DownloadingFile:', fileName, 'progress:', progress);
             const el = document.getElementById('fileName');
             if (el && fileName) {
-                // Показываем только имя файла (можно добавить размер, но для простоты — только имя)
                 el.innerText = fileName;
             }
-            // Обновляем прогресс (игра передаёт progress от 0 до 1)
             window.SetLoadingProgress(progress);
         };
 
-        // Обновление прогресс-бара
         window.SetLoadingProgress = function(progress) {
+            console.log('SetLoadingProgress:', progress);
             const bar = document.getElementById('progressBar');
             if (bar) {
                 progress = Math.max(0, Math.min(1, progress));
@@ -144,28 +137,28 @@
             }
         };
 
-        // Обновление текста статуса (может вызываться игрой отдельно)
         window.SetStatusText = function(text) {
+            console.log('SetStatusText:', text);
             const el = document.getElementById('fileName');
             if (el && text) {
                 el.innerText = text;
             }
         };
 
-        // Начало загрузки (сбрасываем имя)
         window.LoadingStarted = function() {
+            console.log('LoadingStarted');
             window.SetStatusText('Загрузка...');
             window.SetLoadingProgress(0);
         };
 
-        // Завершение загрузки
         window.LoadingFinished = function() {
+            console.log('LoadingFinished');
             window.SetStatusText('Вход в игру...');
             window.SetLoadingProgress(1);
         };
 
-        // Дополнительная функция, если игра её вызывает
         window.UpdateStatus = function(progress, statusText) {
+            console.log('UpdateStatus:', progress, statusText);
             window.SetLoadingProgress(progress);
             window.SetStatusText(statusText);
         };
