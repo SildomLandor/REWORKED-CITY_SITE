@@ -2,22 +2,21 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Загрузка Garry's Mod</title>
     <style>
-        /* Сброс отступов и полноэкранный режим */
+        /* Сброс отступов, полноэкранный режим */
         html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
             overflow: hidden;
-            font-family: 'Arial', Helvetica, sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
             color: white;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            text-shadow: 1px 1px 2px black;
         }
 
-        /* Фон с фотографиями */
+        /* Фоновое слайд-шоу */
         .background {
             position: fixed;
             top: 0;
@@ -30,215 +29,142 @@
             z-index: -2;
         }
 
-        /* Затемнение */
+        /* Лёгкое затемнение для читаемости текста */
         .overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.3);
             z-index: -1;
         }
 
-        /* Контент */
-        .content {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .server-name {
-            font-size: 4rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-        }
-
-        .map-name {
-            font-size: 2rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
-        }
-
-        .info-panel {
-            background: rgba(20, 20, 20, 0.7);
-            padding: 30px 40px;
-            border-radius: 10px;
+        /* Контейнер для нижней панели */
+        .bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.2);
-            max-width: 600px;
-            width: 90%;
+            padding: 15px 20px;
+            box-sizing: border-box;
+            text-align: center;
+            border-top: 1px solid rgba(255,255,255,0.2);
         }
 
-        .status-text {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            min-height: 2.5rem;
+        /* Имя текущего файла */
+        .file-name {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            color: #ddd;
+            word-break: break-word;
         }
 
-        .file-info {
-            font-size: 1rem;
-            margin-bottom: 15px;
-            color: #ccc;
-            min-height: 1.5rem;
-        }
-
+        /* Полоска прогресса */
         .progress-container {
             width: 100%;
-            height: 20px;
+            height: 8px;
             background-color: rgba(255,255,255,0.2);
-            border-radius: 10px;
+            border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 25px;
         }
 
         .progress-bar {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
-            border-radius: 10px;
-            transition: width 0.3s ease;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            border-radius: 4px;
+            transition: width 0.2s ease;
         }
 
-        .server-details {
-            display: flex;
-            justify-content: space-around;
-            font-size: 1rem;
-            color: #ddd;
-        }
-
-        .server-details span {
-            background: rgba(0,0,0,0.3);
-            padding: 5px 15px;
-            border-radius: 20px;
+        /* Небольшой отступ снизу, чтобы текст не упирался в край */
+        body {
+            padding-bottom: 80px; /* место под панель */
         }
     </style>
 </head>
 <body>
 
-    <!-- Слой фона -->
     <div class="background" id="background"></div>
-
-    <!-- Затемнение -->
     <div class="overlay"></div>
 
-    <!-- Контент -->
-    <div class="content">
-        <div class="server-name" id="serverName">ДОБРО ПОЖАЛОВАТЬ</div>
-        <div class="map-name" id="mapName">Загрузка карты...</div>
-        
-        <div class="info-panel">
-            <div class="status-text" id="statusText">Инициализация...</div>
-            <div class="file-info" id="fileInfo"></div>
-            
-            <div class="progress-container">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            
-            <div class="server-details">
-                <span id="playerCount">0/0</span>
-                <span id="serverIp"></span>
-            </div>
+    <!-- Нижняя панель с именем файла и прогрессом -->
+    <div class="bottom-panel">
+        <div class="file-name" id="fileName">Подключение...</div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
         </div>
     </div>
 
     <script>
-        // ============================================
-        // 1. Слайд-шоу из фотографий (index1.png - index4.png)
-        // ============================================
-        const imageUrls = [
+        // ========== СЛАЙД-ШОУ ИЗ ФОТОГРАФИЙ ==========
+        const images = [
             "index1.png",
             "index2.png",
             "index3.png",
             "index4.png"
         ];
 
-        let currentIndex = 0;
-        const bgElement = document.getElementById('background');
+        let current = 0;
+        const bg = document.getElementById('background');
 
-        function changeBackground() {
-            bgElement.style.backgroundImage = `url('${imageUrls[currentIndex]}')`;
-            currentIndex = (currentIndex + 1) % imageUrls.length;
+        function nextBg() {
+            bg.style.backgroundImage = `url('${images[current]}')`;
+            current = (current + 1) % images.length;
         }
 
-        // Предзагрузка
-        imageUrls.forEach(url => {
-            const img = new Image();
-            img.src = url;
-        });
+        // Предзагрузка изображений
+        images.forEach(src => { new Image().src = src; });
 
-        if (imageUrls.length > 0) {
-            changeBackground();
-            setInterval(changeBackground, 10000); // смена каждые 10 секунд
+        if (images.length) {
+            nextBg();
+            setInterval(nextBg, 10000); // смена каждые 10 секунд
         }
 
-        // ============================================
-        // 2. Получение параметров из URL (%s и %m)
-        // ============================================
-        function getUrlParameter(name) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(name) || '';
-        }
-
-        const steamId = getUrlParameter('s');
-        const mapName = getUrlParameter('m');
-
-        if (mapName) {
-            document.getElementById('mapName').innerText = mapName;
-        }
-
-        // ============================================
-        // 3. Функции обратного вызова для GMod
-        //    (определены в window, без демо-режима)
-        // ============================================
-
-        window.SetStatusText = function(text) {
-            const el = document.getElementById('statusText');
-            if (el) el.innerText = text || 'Загрузка...';
-        };
-
-        window.SetLoadingProgress = function(progress) {
-            const bar = document.getElementById('progressBar');
-            if (bar) {
-                const percent = Math.max(0, Math.min(1, progress)) * 100;
-                bar.style.width = percent + '%';
-            }
-        };
-
+        // ========== ФУНКЦИИ ДЛЯ GARRY'S MOD ==========
+        // Обновление имени файла (игра вызывает DownloadingFile)
         window.DownloadingFile = function(fileName, progress, downloaded, total) {
-            const fileInfoEl = document.getElementById('fileInfo');
-            if (fileInfoEl && fileName) {
-                const downloadedMb = (downloaded / 1048576).toFixed(2);
-                const totalMb = (total / 1048576).toFixed(2);
-                fileInfoEl.innerText = `Загрузка: ${fileName} (${downloadedMb} МБ / ${totalMb} МБ)`;
+            const el = document.getElementById('fileName');
+            if (el && fileName) {
+                // Показываем только имя файла (можно добавить размер, но для простоты — только имя)
+                el.innerText = fileName;
             }
+            // Обновляем прогресс (игра передаёт progress от 0 до 1)
             window.SetLoadingProgress(progress);
         };
 
-        window.LoadingStarted = function(loadingType, map, serverName, steamID, maxPlayers, playerCount) {
-            if (serverName) {
-                document.getElementById('serverName').innerText = serverName;
+        // Обновление прогресс-бара
+        window.SetLoadingProgress = function(progress) {
+            const bar = document.getElementById('progressBar');
+            if (bar) {
+                progress = Math.max(0, Math.min(1, progress));
+                bar.style.width = (progress * 100) + '%';
             }
-            if (map) {
-                document.getElementById('mapName').innerText = map;
-            }
-            if (maxPlayers !== undefined && playerCount !== undefined) {
-                document.getElementById('playerCount').innerText = playerCount + '/' + maxPlayers;
-            }
-            window.SetStatusText('Подключение к серверу...');
         };
 
+        // Обновление текста статуса (может вызываться игрой отдельно)
+        window.SetStatusText = function(text) {
+            const el = document.getElementById('fileName');
+            if (el && text) {
+                el.innerText = text;
+            }
+        };
+
+        // Начало загрузки (сбрасываем имя)
+        window.LoadingStarted = function() {
+            window.SetStatusText('Загрузка...');
+            window.SetLoadingProgress(0);
+        };
+
+        // Завершение загрузки
         window.LoadingFinished = function() {
-            window.SetStatusText('Загрузка завершена! Вход в игру...');
+            window.SetStatusText('Вход в игру...');
+            window.SetLoadingProgress(1);
         };
 
-        // (Опционально) Если игра вызывает UpdateStatus
+        // Дополнительная функция, если игра её вызывает
         window.UpdateStatus = function(progress, statusText) {
             window.SetLoadingProgress(progress);
             window.SetStatusText(statusText);
