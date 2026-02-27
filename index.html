@@ -2,19 +2,19 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Загрузка Garry's Mod</title>
+    <title>GMod Loading Debug</title>
     <style>
+        /* Абсолютный минимум: только фото, имя файла и полоска */
         html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
             overflow: hidden;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: Arial, sans-serif;
             color: white;
             text-shadow: 1px 1px 2px black;
         }
-
         .background {
             position: fixed;
             top: 0;
@@ -23,145 +23,161 @@
             height: 100%;
             background-size: cover;
             background-position: center;
-            transition: background-image 1s ease-in-out;
+            transition: background-image 1s;
             z-index: -2;
         }
-
         .overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.3);
+            background: rgba(0,0,0,0.4);
             z-index: -1;
         }
-
-        /* Панель теперь не в самом низу, а с отступом снизу 25% */
-        .progress-panel {
+        .panel {
             position: fixed;
-            bottom: 25%;
+            bottom: 20%;
             left: 50%;
             transform: translateX(-50%);
             width: 80%;
             max-width: 600px;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
+            background: rgba(0,0,0,0.8);
             padding: 15px 20px;
             border-radius: 8px;
             text-align: center;
-            border: 1px solid rgba(255,255,255,0.2);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-
-        .file-name {
-            font-size: 1.3rem;
+        .filename {
+            font-size: 1.2rem;
             margin-bottom: 10px;
-            color: #fff;
             word-break: break-word;
         }
-
         .progress-container {
             width: 100%;
             height: 10px;
-            background-color: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.2);
             border-radius: 5px;
             overflow: hidden;
         }
-
         .progress-bar {
             height: 100%;
             width: 0%;
             background: linear-gradient(90deg, #4facfe, #00f2fe);
-            border-radius: 5px;
-            transition: width 0.2s ease;
+            transition: width 0.2s;
         }
     </style>
 </head>
 <body>
-
     <div class="background" id="background"></div>
     <div class="overlay"></div>
-
-    <div class="progress-panel">
-        <div class="file-name" id="fileName">Подключение...</div>
+    <div class="panel">
+        <div class="filename" id="fileName">Ожидание сигнала от GMod...</div>
         <div class="progress-container">
             <div class="progress-bar" id="progressBar"></div>
         </div>
     </div>
 
     <script>
-        // ========== СЛАЙД-ШОУ ИЗ ФОТОГРАФИЙ ==========
-        const images = [
-            "index1.png",
-            "index2.png",
-            "index3.png",
-            "index4.png"
+        // ===== ФОТОГРАФИИ (index1.png - index4.png) =====
+        const images = ["index1.png", "index2.png", "index3.png", "index4.png"];
+        let bg = document.getElementById('background');
+        let idx = 0;
+        function nextBg() {
+            bg.style.backgroundImage = `url('${images[idx]}')`;
+            idx = (idx + 1) % images.length;
+        }
+        images.forEach(src => new Image().src = src);
+        if (images.length) { nextBg(); setInterval(nextBg, 10000); }
+
+        // ===== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА =====
+        const fileNameEl = document.getElementById('fileName');
+        const progressBar = document.getElementById('progressBar');
+
+        // ===== УНИВЕРСАЛЬНЫЙ ПЕРЕХВАТЧИК ВЫЗОВОВ =====
+        // Мы создаём функцию-ловушку, которая будет логировать ВСЕ вызовы
+        // и пытаться обновлять интерфейс, если узнаёт знакомые параметры.
+        function logAndTryUpdate(functionName, args) {
+            // Преобразуем аргументы в читаемый вид
+            const argsArray = Array.from(args);
+            const argsStr = argsArray.map(arg => {
+                if (typeof arg === 'string') return `"${arg}"`;
+                if (typeof arg === 'number') return arg;
+                try { return JSON.stringify(arg); } catch(e) { return String(arg); }
+            }).join(', ');
+
+            console.log(`📞 GMod вызвал: ${functionName}(${argsStr})`);
+
+            // Пытаемся интерпретировать частые случаи
+            if (args.length === 1) {
+                // Если один аргумент - может быть прогресс (число) или текст статуса
+                if (typeof args[0] === 'number') {
+                    const progress = Math.max(0, Math.min(1, args[0]));
+                    progressBar.style.width = (progress * 100) + '%';
+                    console.log(`   → Интерпретировано как прогресс: ${progress}`);
+                } else if (typeof args[0] === 'string') {
+                    fileNameEl.innerText = args[0];
+                    console.log(`   → Интерпретировано как текст статуса`);
+                }
+            }
+            else if (args.length >= 2) {
+                // Если два аргумента и первый - число, второй - строка (или наоборот)
+                if (typeof args[0] === 'number' && typeof args[1] === 'string') {
+                    progressBar.style.width = (Math.max(0, Math.min(1, args[0])) * 100) + '%';
+                    fileNameEl.innerText = args[1];
+                    console.log(`   → Интерпретировано как прогресс и текст`);
+                }
+                else if (typeof args[0] === 'string' && typeof args[1] === 'number') {
+                    fileNameEl.innerText = args[0];
+                    progressBar.style.width = (Math.max(0, Math.min(1, args[1])) * 100) + '%';
+                    console.log(`   → Интерпретировано как текст и прогресс`);
+                }
+                // Если три аргумента и второй - число (прогресс) - вероятно DownloadingFile
+                else if (args.length === 3 && typeof args[1] === 'number') {
+                    fileNameEl.innerText = String(args[0]);
+                    progressBar.style.width = (Math.max(0, Math.min(1, args[1])) * 100) + '%';
+                    console.log(`   → Интерпретировано как DownloadingFile: имя и прогресс`);
+                }
+            }
+        }
+
+        // ===== СОЗДАЁМ ПЕРЕХВАТЧИК ДЛЯ ВСЕХ ВОЗМОЖНЫХ ФУНКЦИЙ =====
+        // Список имён, которые могут вызываться (из опыта и документации)
+        const possibleFunctions = [
+            'SetLoadingProgress', 'SetStatusText', 'DownloadingFile',
+            'UpdateStatus', 'LoadingStarted', 'LoadingFinished',
+            'SetProgress', 'SetStatus', 'OnDownload', 'OnProgress'
         ];
 
-        let current = 0;
-        const bg = document.getElementById('background');
+        possibleFunctions.forEach(funcName => {
+            window[funcName] = function(...args) {
+                logAndTryUpdate(funcName, args);
+            };
+        });
 
-        function nextBg() {
-            bg.style.backgroundImage = `url('${images[current]}')`;
-            current = (current + 1) % images.length;
-        }
-
-        images.forEach(src => { new Image().src = src; });
-
-        if (images.length) {
-            nextBg();
-            setInterval(nextBg, 10000);
-        }
-
-        // ========== ОТЛАДКА В КОНСОЛИ ==========
-        // Эти сообщения помогут убедиться, что игра вызывает функции
-        console.log('Страница загрузки загружена. Ожидание вызовов от GMod...');
-
-        // ========== ФУНКЦИИ ДЛЯ GARRY'S MOD ==========
-        window.DownloadingFile = function(fileName, progress, downloaded, total) {
-            console.log('DownloadingFile:', fileName, 'progress:', progress);
-            const el = document.getElementById('fileName');
-            if (el && fileName) {
-                el.innerText = fileName;
+        // Дополнительно: перехватываем любые вызовы, которые могут прийти
+        // через вызов функции, имя которой мы не угадали, но она есть в window
+        const originalWindow = window;
+        window = new Proxy(window, {
+            set: function(target, prop, value) {
+                target[prop] = value;
+                return true;
+            },
+            get: function(target, prop) {
+                if (typeof prop === 'string' && typeof target[prop] === 'undefined') {
+                    // Если запрашивают функцию, которой нет - создаём ловушку на лету
+                    if (prop.match(/^[a-zA-Z]/)) { // похоже на имя функции
+                        console.log(`⚠️ Игра пытается вызвать НЕИЗВЕСТНУЮ функцию: ${prop}`);
+                        target[prop] = function(...args) {
+                            logAndTryUpdate(prop, args);
+                        };
+                    }
+                }
+                return target[prop];
             }
-            window.SetLoadingProgress(progress);
-        };
+        });
 
-        window.SetLoadingProgress = function(progress) {
-            console.log('SetLoadingProgress:', progress);
-            const bar = document.getElementById('progressBar');
-            if (bar) {
-                progress = Math.max(0, Math.min(1, progress));
-                bar.style.width = (progress * 100) + '%';
-            }
-        };
-
-        window.SetStatusText = function(text) {
-            console.log('SetStatusText:', text);
-            const el = document.getElementById('fileName');
-            if (el && text) {
-                el.innerText = text;
-            }
-        };
-
-        window.LoadingStarted = function() {
-            console.log('LoadingStarted');
-            window.SetStatusText('Загрузка...');
-            window.SetLoadingProgress(0);
-        };
-
-        window.LoadingFinished = function() {
-            console.log('LoadingFinished');
-            window.SetStatusText('Вход в игру...');
-            window.SetLoadingProgress(1);
-        };
-
-        window.UpdateStatus = function(progress, statusText) {
-            console.log('UpdateStatus:', progress, statusText);
-            window.SetLoadingProgress(progress);
-            window.SetStatusText(statusText);
-        };
+        console.log('%c🔍 РЕЖИМ ОТЛАДКИ: Все вызовы GMod будут показаны в консоли. Ждём...', 'font-size:16px; color: yellow; background:black; padding:5px;');
+        fileNameEl.innerText = 'Ожидание сигнала... Открой консоль (F12)';
     </script>
 </body>
 </html>
