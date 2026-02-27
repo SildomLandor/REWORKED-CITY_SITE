@@ -1,183 +1,305 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>GMod Loading Debug</title>
+    <title>GMod Загрузка</title>
     <style>
-        /* Абсолютный минимум: только фото, имя файла и полоска */
-        html, body {
+        body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
+            font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+            color: #e0e0e0;
             overflow: hidden;
-            font-family: Arial, sans-serif;
-            color: white;
-            text-shadow: 1px 1px 2px black;
         }
-        .background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+
+        .loading-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
             background-size: cover;
             background-position: center;
-            transition: background-image 1s;
-            z-index: -2;
+            background-repeat: no-repeat;
+            transition: background-image 1s ease-in-out;
         }
+
         .overlay {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.4);
-            z-index: -1;
+            background: rgba(0, 0, 0, 0.4);
+            pointer-events: none;
         }
-        .panel {
-            position: fixed;
-            bottom: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            max-width: 600px;
-            background: rgba(0,0,0,0.8);
-            padding: 15px 20px;
+
+        /* Панель загрузки с прогресс-баром */
+        .download-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border-top: 2px solid #ff9900;
             border-radius: 8px;
-            text-align: center;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 16px 20px;
+            box-sizing: border-box;
+            backdrop-filter: blur(5px);
+            z-index: 1000;
         }
-        .filename {
-            font-size: 1.2rem;
+
+        .download-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ff9900;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 13px;
             margin-bottom: 10px;
-            word-break: break-word;
         }
+
+        .download-header span {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #ff9900;
+            border-radius: 2px;
+        }
+
+        /* Прогресс-бар */
         .progress-container {
             width: 100%;
-            height: 10px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 5px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
             overflow: hidden;
+            margin-bottom: 8px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
         }
-        .progress-bar {
+
+        .progress-fill {
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, #4facfe, #00f2fe);
-            transition: width 0.2s;
+            background: linear-gradient(90deg, #ff9900, #ffcc66);
+            border-radius: 12px;
+            box-shadow: 0 0 10px #ff9900;
+            transition: width 0.3s ease;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #ddd;
+            margin-bottom: 5px;
+        }
+
+        .current-file {
+            font-size: 13px;
+            color: #ff9900;
+            background: rgba(255, 153, 0, 0.1);
+            padding: 5px 10px;
+            border-radius: 4px;
+            border-left: 3px solid #ff9900;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .no-files {
+            color: #888;
+            font-style: italic;
+            padding: 4px 0;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .downloading-active {
+            animation: pulse 1.5s infinite;
+            color: #ff9900;
         }
     </style>
 </head>
 <body>
-    <div class="background" id="background"></div>
-    <div class="overlay"></div>
-    <div class="panel">
-        <div class="filename" id="fileName">Ожидание сигнала от GMod...</div>
-        <div class="progress-container">
-            <div class="progress-bar" id="progressBar"></div>
+    <div class="loading-container" id="loadingContainer">
+        <div class="overlay"></div>
+
+        <div class="download-panel">
+            <div class="download-header">
+                <span></span> ЗАГРУЗКА РЕСУРСОВ
+            </div>
+
+            <!-- Прогресс-бар -->
+            <div class="progress-container">
+                <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+            </div>
+
+            <div class="progress-info">
+                <span id="progressPercent">0%</span>
+                <span id="fileCounter">0 / 0</span>
+            </div>
+
+            <!-- Текущий загружаемый файл -->
+            <div class="current-file" id="currentFile">Ожидание...</div>
         </div>
     </div>
 
     <script>
-        // ===== ФОТОГРАФИИ (index1.png - index4.png) =====
-        const images = ["index1.png", "index2.png", "index3.png", "index4.png"];
-        let bg = document.getElementById('background');
-        let idx = 0;
-        function nextBg() {
-            bg.style.backgroundImage = `url('${images[idx]}')`;
-            idx = (idx + 1) % images.length;
-        }
-        images.forEach(src => new Image().src = src);
-        if (images.length) { nextBg(); setInterval(nextBg, 10000); }
+        (function() {
+            "use strict";
 
-        // ===== ЭЛЕМЕНТЫ ИНТЕРФЕЙСА =====
-        const fileNameEl = document.getElementById('fileName');
-        const progressBar = document.getElementById('progressBar');
+            // --- Смена фоновых изображений (как и раньше) ---
+            const backgroundImages = [
+                'index1.jpg',
+                'index2.jpg',
+                'index3.jpg',
+                'index4.jpg'
+            ].filter(name => name);
 
-        // ===== УНИВЕРСАЛЬНЫЙ ПЕРЕХВАТЧИК ВЫЗОВОВ =====
-        // Мы создаём функцию-ловушку, которая будет логировать ВСЕ вызовы
-        // и пытаться обновлять интерфейс, если узнаёт знакомые параметры.
-        function logAndTryUpdate(functionName, args) {
-            // Преобразуем аргументы в читаемый вид
-            const argsArray = Array.from(args);
-            const argsStr = argsArray.map(arg => {
-                if (typeof arg === 'string') return `"${arg}"`;
-                if (typeof arg === 'number') return arg;
-                try { return JSON.stringify(arg); } catch(e) { return String(arg); }
-            }).join(', ');
+            const container = document.getElementById('loadingContainer');
+            let currentIndex = 0;
 
-            console.log(`📞 GMod вызвал: ${functionName}(${argsStr})`);
-
-            // Пытаемся интерпретировать частые случаи
-            if (args.length === 1) {
-                // Если один аргумент - может быть прогресс (число) или текст статуса
-                if (typeof args[0] === 'number') {
-                    const progress = Math.max(0, Math.min(1, args[0]));
-                    progressBar.style.width = (progress * 100) + '%';
-                    console.log(`   → Интерпретировано как прогресс: ${progress}`);
-                } else if (typeof args[0] === 'string') {
-                    fileNameEl.innerText = args[0];
-                    console.log(`   → Интерпретировано как текст статуса`);
+            function changeBackground() {
+                if (!container) return;
+                if (backgroundImages.length > 0) {
+                    container.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
+                    currentIndex = (currentIndex + 1) % backgroundImages.length;
+                } else {
+                    container.style.backgroundImage = 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)';
                 }
             }
-            else if (args.length >= 2) {
-                // Если два аргумента и первый - число, второй - строка (или наоборот)
-                if (typeof args[0] === 'number' && typeof args[1] === 'string') {
-                    progressBar.style.width = (Math.max(0, Math.min(1, args[0])) * 100) + '%';
-                    fileNameEl.innerText = args[1];
-                    console.log(`   → Интерпретировано как прогресс и текст`);
-                }
-                else if (typeof args[0] === 'string' && typeof args[1] === 'number') {
-                    fileNameEl.innerText = args[0];
-                    progressBar.style.width = (Math.max(0, Math.min(1, args[1])) * 100) + '%';
-                    console.log(`   → Интерпретировано как текст и прогресс`);
-                }
-                // Если три аргумента и второй - число (прогресс) - вероятно DownloadingFile
-                else if (args.length === 3 && typeof args[1] === 'number') {
-                    fileNameEl.innerText = String(args[0]);
-                    progressBar.style.width = (Math.max(0, Math.min(1, args[1])) * 100) + '%';
-                    console.log(`   → Интерпретировано как DownloadingFile: имя и прогресс`);
-                }
+            changeBackground();
+            if (backgroundImages.length > 1) {
+                setInterval(changeBackground, 6000);
             }
-        }
 
-        // ===== СОЗДАЁМ ПЕРЕХВАТЧИК ДЛЯ ВСЕХ ВОЗМОЖНЫХ ФУНКЦИЙ =====
-        // Список имён, которые могут вызываться (из опыта и документации)
-        const possibleFunctions = [
-            'SetLoadingProgress', 'SetStatusText', 'DownloadingFile',
-            'UpdateStatus', 'LoadingStarted', 'LoadingFinished',
-            'SetProgress', 'SetStatus', 'OnDownload', 'OnProgress'
-        ];
+            // --- Логика прогресса загрузки ---
+            const progressFill = document.getElementById('progressFill');
+            const progressPercent = document.getElementById('progressPercent');
+            const fileCounter = document.getElementById('fileCounter');
+            const currentFileEl = document.getElementById('currentFile');
 
-        possibleFunctions.forEach(funcName => {
-            window[funcName] = function(...args) {
-                logAndTryUpdate(funcName, args);
+            let totalFiles = 0;          // общее количество файлов для загрузки
+            let remainingFiles = 0;       // сколько ещё нужно скачать
+
+            function updateProgress() {
+                let percent = 0;
+                if (totalFiles > 0) {
+                    percent = Math.min(100, Math.max(0, ((totalFiles - remainingFiles) / totalFiles) * 100));
+                }
+                progressFill.style.width = percent + '%';
+                progressPercent.textContent = Math.round(percent) + '%';
+                fileCounter.textContent = (totalFiles - remainingFiles) + ' / ' + totalFiles;
+            }
+
+            // Вызывается при изменении списка скачиваемых файлов (передаётся массив оставшихся)
+            window.DownloadablesChanged = function(files) {
+                console.log('DownloadablesChanged', files);
+                if (!files || !Array.isArray(files)) return;
+
+                remainingFiles = files.length;
+
+                // Показываем первый файл из списка как "текущий"
+                if (remainingFiles > 0) {
+                    currentFileEl.textContent = files[0] || 'Неизвестный файл';
+                } else {
+                    currentFileEl.textContent = 'Загрузка завершена';
+                }
+
+                updateProgress();
             };
-        });
 
-        // Дополнительно: перехватываем любые вызовы, которые могут прийти
-        // через вызов функции, имя которой мы не угадали, но она есть в window
-        const originalWindow = window;
-        window = new Proxy(window, {
-            set: function(target, prop, value) {
-                target[prop] = value;
-                return true;
-            },
-            get: function(target, prop) {
-                if (typeof prop === 'string' && typeof target[prop] === 'undefined') {
-                    // Если запрашивают функцию, которой нет - создаём ловушку на лету
-                    if (prop.match(/^[a-zA-Z]/)) { // похоже на имя функции
-                        console.log(`⚠️ Игра пытается вызвать НЕИЗВЕСТНУЮ функцию: ${prop}`);
-                        target[prop] = function(...args) {
-                            logAndTryUpdate(prop, args);
-                        };
+            // Вызывается с общим количеством файлов (и иногда массивом)
+            window.NumDownloadables = function(num, files) {
+                console.log('NumDownloadables', num, files);
+                if (typeof num === 'number' && num >= 0) {
+                    totalFiles = num;
+                }
+                if (files && Array.isArray(files)) {
+                    remainingFiles = files.length;
+                    if (remainingFiles > 0) {
+                        currentFileEl.textContent = files[0] || 'Неизвестный файл';
+                    } else {
+                        currentFileEl.textContent = 'Загрузка завершена';
+                    }
+                } else {
+                    // Если массив не передан, попробуем получить имена через TranslateDownloadableName
+                    const names = [];
+                    for (let i = 0; i < totalFiles; i++) {
+                        if (window.TranslateDownloadableName) {
+                            try {
+                                names.push(window.TranslateDownloadableName(i) || `Файл ${i+1}`);
+                            } catch (e) {
+                                names.push(`Файл ${i+1}`);
+                            }
+                        } else {
+                            names.push(`Файл ${i+1}`);
+                        }
+                    }
+                    // Предполагаем, что все ещё загружаются (если нет доп. информации)
+                    // Но лучше использовать предыдущее значение remainingFiles, если оно было установлено
+                    if (remainingFiles === 0 && totalFiles > 0) {
+                        remainingFiles = totalFiles; // первая инициализация
+                    }
+                    if (remainingFiles > 0) {
+                        currentFileEl.textContent = names[0] || 'Файл...';
                     }
                 }
-                return target[prop];
-            }
-        });
+                updateProgress();
+            };
 
-        console.log('%c🔍 РЕЖИМ ОТЛАДКИ: Все вызовы GMod будут показаны в консоли. Ждём...', 'font-size:16px; color: yellow; background:black; padding:5px;');
-        fileNameEl.innerText = 'Ожидание сигнала... Открой консоль (F12)';
+            window.UpdateDownloadables = function() {
+                console.log('UpdateDownloadables');
+                if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
+                    try {
+                        const files = window.GetDownloadables();
+                        if (files && Array.isArray(files)) {
+                            remainingFiles = files.length;
+                            if (remainingFiles > 0) {
+                                currentFileEl.textContent = files[0] || 'Неизвестный файл';
+                            } else {
+                                currentFileEl.textContent = 'Загрузка завершена';
+                            }
+                            updateProgress();
+                        }
+                    } catch (e) {}
+                }
+            };
+
+            // Заглушка для TranslateDownloadableName
+            if (!window.TranslateDownloadableName) {
+                window.TranslateDownloadableName = function(index) {
+                    return `resource_${index}.dat`;
+                };
+            }
+
+            // Демо-режим для браузера
+            setTimeout(function() {
+                if (!window.GetDownloadables) {
+                    // Имитация загрузки
+                    totalFiles = 10;
+                    remainingFiles = 7;
+                    currentFileEl.textContent = 'maps/demo_map.bsp';
+                    updateProgress();
+
+                    // Для демонстрации обновлений
+                    let demoCount = 0;
+                    setInterval(function() {
+                        if (remainingFiles > 0) {
+                            remainingFiles--;
+                            currentFileEl.textContent = `file_${remainingFiles}.dat`;
+                            updateProgress();
+                        }
+                    }, 2000);
+                }
+            }, 500);
+        })();
     </script>
 </body>
 </html>
