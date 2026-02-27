@@ -17,7 +17,7 @@
             text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
         }
 
-        /* Контейнер фона с изменяющимся изображением */
+        /* Фон с фотографиями */
         .background {
             position: fixed;
             top: 0;
@@ -26,12 +26,11 @@
             height: 100%;
             background-size: cover;
             background-position: center;
-            background-repeat: no-repeat;
             transition: background-image 1s ease-in-out;
             z-index: -2;
         }
 
-        /* Затемняющий слой */
+        /* Затемнение */
         .overlay {
             position: fixed;
             top: 0;
@@ -42,7 +41,7 @@
             z-index: -1;
         }
 
-        /* Основной контент */
+        /* Контент */
         .content {
             position: relative;
             z-index: 1;
@@ -53,22 +52,18 @@
             height: 100%;
             text-align: center;
             padding: 20px;
-            box-sizing: border-box;
         }
 
         .server-name {
             font-size: 4rem;
             font-weight: bold;
             margin-bottom: 0.5rem;
-            letter-spacing: 2px;
-            animation: fadeIn 2s;
         }
 
         .map-name {
             font-size: 2rem;
             margin-bottom: 2rem;
             opacity: 0.9;
-            animation: fadeIn 2.5s;
         }
 
         .info-panel {
@@ -79,7 +74,6 @@
             border: 1px solid rgba(255,255,255,0.2);
             max-width: 600px;
             width: 90%;
-            animation: fadeInUp 2.5s;
         }
 
         .status-text {
@@ -117,29 +111,12 @@
             justify-content: space-around;
             font-size: 1rem;
             color: #ddd;
-            margin-top: 15px;
         }
 
         .server-details span {
             background: rgba(0,0,0,0.3);
             padding: 5px 15px;
             border-radius: 20px;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
     </style>
 </head>
@@ -151,7 +128,7 @@
     <!-- Затемнение -->
     <div class="overlay"></div>
 
-    <!-- Основной контент -->
+    <!-- Контент -->
     <div class="content">
         <div class="server-name" id="serverName">ДОБРО ПОЖАЛОВАТЬ</div>
         <div class="map-name" id="mapName">Загрузка карты...</div>
@@ -173,7 +150,7 @@
 
     <script>
         // ============================================
-        // 1. Настройка слайд-шоу из фотографий (index1.png - index4.png)
+        // 1. Слайд-шоу из фотографий (index1.png - index4.png)
         // ============================================
         const imageUrls = [
             "index1.png",
@@ -190,19 +167,15 @@
             currentIndex = (currentIndex + 1) % imageUrls.length;
         }
 
-        function preloadImages(urls) {
-            urls.forEach(url => {
-                const img = new Image();
-                img.src = url;
-            });
-        }
+        // Предзагрузка
+        imageUrls.forEach(url => {
+            const img = new Image();
+            img.src = url;
+        });
 
         if (imageUrls.length > 0) {
-            preloadImages(imageUrls);
             changeBackground();
-            setInterval(changeBackground, 10000);
-        } else {
-            bgElement.style.backgroundImage = "url('https://via.placeholder.com/1920x1080?text=No+Images')";
+            setInterval(changeBackground, 10000); // смена каждые 10 секунд
         }
 
         // ============================================
@@ -220,40 +193,17 @@
             document.getElementById('mapName').innerText = mapName;
         }
 
-        console.log('Steam ID:', steamId);
-
         // ============================================
-        // 3. Функции обратного вызова, вызываемые GMod
-        //    + флаг для определения активности GMod
+        // 3. Функции обратного вызова для GMod
+        //    (определены в window, без демо-режима)
         // ============================================
-        let gmodActive = false;          // true, если хотя бы одна функция была вызвана игрой
-        let demoTimer = null;            // таймер для запуска демо-режима
-        let demoInterval = null;         // интервал демо-режима
 
-        // Функция, которая отключает демо-режим и помечает, что GMod активен
-        function activateGmod() {
-            if (gmodActive) return;
-            gmodActive = true;
-            if (demoTimer) {
-                clearTimeout(demoTimer);
-                demoTimer = null;
-            }
-            if (demoInterval) {
-                clearInterval(demoInterval);
-                demoInterval = null;
-            }
-            console.log('GMod активен, демо-режим отключён');
-        }
-
-        // Обёртки для функций GMod: при первом вызове активируем GMod-режим
         window.SetStatusText = function(text) {
-            activateGmod();
-            const statusEl = document.getElementById('statusText');
-            if (statusEl) statusEl.innerText = text || 'Загрузка...';
+            const el = document.getElementById('statusText');
+            if (el) el.innerText = text || 'Загрузка...';
         };
 
         window.SetLoadingProgress = function(progress) {
-            activateGmod();
             const bar = document.getElementById('progressBar');
             if (bar) {
                 const percent = Math.max(0, Math.min(1, progress)) * 100;
@@ -262,7 +212,6 @@
         };
 
         window.DownloadingFile = function(fileName, progress, downloaded, total) {
-            activateGmod();
             const fileInfoEl = document.getElementById('fileInfo');
             if (fileInfoEl && fileName) {
                 const downloadedMb = (downloaded / 1048576).toFixed(2);
@@ -273,7 +222,6 @@
         };
 
         window.LoadingStarted = function(loadingType, map, serverName, steamID, maxPlayers, playerCount) {
-            activateGmod();
             if (serverName) {
                 document.getElementById('serverName').innerText = serverName;
             }
@@ -287,94 +235,14 @@
         };
 
         window.LoadingFinished = function() {
-            activateGmod();
             window.SetStatusText('Загрузка завершена! Вход в игру...');
         };
 
+        // (Опционально) Если игра вызывает UpdateStatus
         window.UpdateStatus = function(progress, statusText) {
-            activateGmod();
             window.SetLoadingProgress(progress);
             window.SetStatusText(statusText);
         };
-
-        // ============================================
-        // 4. Демо-режим (если GMod не вызвал функции в течение 2 секунд)
-        // ============================================
-        function startDemoMode() {
-            if (gmodActive) return; // уже активен GMod
-
-            console.log('Запуск демо-режима (имитация загрузки)');
-            const statusEl = document.getElementById('statusText');
-            const fileInfoEl = document.getElementById('fileInfo');
-            const bar = document.getElementById('progressBar');
-            const serverNameEl = document.getElementById('serverName');
-            const mapNameEl = document.getElementById('mapName');
-            const playerCountEl = document.getElementById('playerCount');
-
-            // Установим начальные значения для демо
-            serverNameEl.innerText = 'ДЕМО-СЕРВЕР';
-            mapNameEl.innerText = 'gm_construct';
-            playerCountEl.innerText = '3/16';
-
-            let progress = 0;
-            const files = [
-                { name: 'maps/gm_construct.bsp', size: 45.2 },
-                { name: 'materials/rockwall_01.vmt', size: 0.8 },
-                { name: 'models/player/group01/male_01.dx80.vtx', size: 3.4 },
-                { name: 'sound/ambient/water/water_drip1.wav', size: 0.2 },
-                { name: 'lua/autorun/server/sv_module.lua', size: 1.1 }
-            ];
-            let fileIndex = 0;
-
-            demoInterval = setInterval(() => {
-                if (gmodActive) {
-                    clearInterval(demoInterval);
-                    return;
-                }
-
-                // Увеличиваем прогресс
-                progress += 0.01;
-                if (progress > 1.0) progress = 1.0;
-
-                // Обновляем полоску
-                bar.style.width = (progress * 100) + '%';
-
-                // Меняем статус и информацию о файле в зависимости от прогресса
-                if (progress < 0.2) {
-                    statusEl.innerText = 'Подключение к серверу...';
-                } else if (progress < 0.4) {
-                    statusEl.innerText = 'Загрузка карты...';
-                } else if (progress < 0.6) {
-                    statusEl.innerText = 'Загрузка материалов...';
-                } else if (progress < 0.8) {
-                    statusEl.innerText = 'Загрузка моделей...';
-                } else {
-                    statusEl.innerText = 'Финальная синхронизация...';
-                }
-
-                // Имитация загрузки файлов (меняем название файла каждые 2 секунды)
-                if (progress > 0 && fileIndex < files.length) {
-                    const file = files[fileIndex];
-                    const fileProgress = Math.min(1, (progress - fileIndex * 0.2) / 0.2);
-                    if (fileProgress >= 1) {
-                        fileIndex++;
-                    } else {
-                        const downloaded = (file.size * fileProgress).toFixed(2);
-                        fileInfoEl.innerText = `Загрузка: ${file.name} (${downloaded} МБ / ${file.size} МБ)`;
-                    }
-                }
-
-                if (progress >= 1.0) {
-                    statusEl.innerText = 'Загрузка завершена! Вход в игру...';
-                    fileInfoEl.innerText = '';
-                    clearInterval(demoInterval);
-                    demoInterval = null;
-                }
-            }, 300); // обновление каждые 300 мс
-        }
-
-        // Запускаем таймер: если через 2 секунды GMod не активировался, стартуем демо
-        demoTimer = setTimeout(startDemoMode, 2000);
     </script>
 </body>
 </html>
