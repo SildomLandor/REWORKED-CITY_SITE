@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Garry's Mod Loading Screen</title>
+    <title>Загрузка Garry's Mod</title>
     <style>
         /* Сброс отступов и полноэкранный режим */
         html, body {
@@ -38,11 +38,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.4);
+            background-color: rgba(0, 0, 0, 0.5); /* Можно менять интенсивность */
             z-index: -1;
         }
 
-        /* Контейнер с информацией */
+        /* Основной контент */
         .content {
             position: relative;
             z-index: 1;
@@ -59,33 +59,75 @@
         .server-name {
             font-size: 4rem;
             font-weight: bold;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
             letter-spacing: 2px;
             animation: fadeIn 2s;
         }
 
-        .loading-text {
+        .map-name {
             font-size: 2rem;
             margin-bottom: 2rem;
-            animation: fadeIn 3s;
+            opacity: 0.9;
+            animation: fadeIn 2.5s;
         }
 
+        /* Панель прогресса и информации */
         .info-panel {
             background: rgba(20, 20, 20, 0.7);
-            padding: 20px 40px;
+            padding: 30px 40px;
             border-radius: 10px;
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255,255,255,0.2);
             max-width: 600px;
+            width: 90%;
             animation: fadeInUp 2.5s;
         }
 
-        .info-panel p {
-            margin: 10px 0;
-            font-size: 1.2rem;
+        .status-text {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            min-height: 2.5rem;
         }
 
-        /* Простые анимации */
+        .file-info {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: #ccc;
+            min-height: 1.5rem;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 20px;
+            background-color: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 25px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .server-details {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1rem;
+            color: #ddd;
+            margin-top: 15px;
+        }
+
+        .server-details span {
+            background: rgba(0,0,0,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        /* Анимации */
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -101,13 +143,6 @@
                 transform: translateY(0);
             }
         }
-
-        /* Адаптация для мобильных */
-        @media (max-width: 600px) {
-            .server-name { font-size: 2.5rem; }
-            .loading-text { font-size: 1.5rem; }
-            .info-panel { padding: 15px; }
-        }
     </style>
 </head>
 <body>
@@ -115,27 +150,38 @@
     <!-- Слой фона -->
     <div class="background" id="background"></div>
 
-    <!-- Затемняющий слой -->
+    <!-- Затемнение -->
     <div class="overlay"></div>
 
     <!-- Основной контент -->
     <div class="content">
-        <div class="server-name">ДОБРО ПОЖАЛОВАТЬ</div>
-        <div class="loading-text">Загрузка...</div>
+        <div class="server-name" id="serverName">ДОБРО ПОЖАЛОВАТЬ</div>
+        <div class="map-name" id="mapName">Загрузка карты...</div>
+        
         <div class="info-panel">
-            <p><strong>Сервер:</strong> Garry's Mod</p>
-            <p><strong>Карта:</strong> Загрузка...</p>
-            <p><strong>Игроков:</strong> 0/16</p>
-            <p><strong>Правила:</strong> Играйте честно и уважайте других</p>
-            <p><em>Ваши фотографии на фоне</em></p>
+            <div class="status-text" id="statusText">Инициализация...</div>
+            <div class="file-info" id="fileInfo"></div>
+            
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            
+            <div class="server-details">
+                <span id="playerCount">0/0</span>
+                <span id="serverIp"></span>
+            </div>
         </div>
     </div>
 
     <script>
-        // Фотографии теперь с расширением .png
+        // ============================================
+        // 1. Настройка слайд-шоу из фотографий (index1.png - index4.png)
+        // ============================================
         const imageUrls = [
             "index1.png",
             "index2.png",
+            "index3.png",
+            "index4.png"
         ];
 
         let currentIndex = 0;
@@ -146,6 +192,7 @@
             currentIndex = (currentIndex + 1) % imageUrls.length;
         }
 
+        // Предзагрузка изображений
         function preloadImages(urls) {
             urls.forEach(url => {
                 const img = new Image();
@@ -156,12 +203,104 @@
         if (imageUrls.length > 0) {
             preloadImages(imageUrls);
             changeBackground();
-            setInterval(changeBackground, 10000); // меняем каждые 10 секунд
+            setInterval(changeBackground, 10000); // смена каждые 10 секунд
         } else {
             bgElement.style.backgroundImage = "url('https://via.placeholder.com/1920x1080?text=No+Images')";
         }
+
+        // ============================================
+        // 2. Получение параметров из URL (%s и %m)
+        // ============================================
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name) || '';
+        }
+
+        const steamId = getUrlParameter('s');      // %s — Steam ID (64-bit)
+        const mapName = getUrlParameter('m');      // %m — название карты
+
+        // Если карта передана, отображаем её
+        if (mapName) {
+            document.getElementById('mapName').innerText = mapName;
+        }
+
+        // Можно использовать steamId для каких-то целей (например, приветствие)
+        console.log('Steam ID:', steamId);
+
+        // ============================================
+        // 3. Функции обратного вызова, вызываемые GMod
+        // Все они должны быть определены в глобальном объекте window
+        // ============================================
+
+        // Обновление текста статуса
+        window.SetStatusText = function(text) {
+            const statusEl = document.getElementById('statusText');
+            if (statusEl) statusEl.innerText = text || 'Загрузка...';
+        };
+
+        // Обновление прогресса (значение от 0 до 1)
+        window.SetLoadingProgress = function(progress) {
+            const bar = document.getElementById('progressBar');
+            if (bar) {
+                const percent = Math.max(0, Math.min(1, progress)) * 100;
+                bar.style.width = percent + '%';
+            }
+        };
+
+        // Информация о загружаемом файле
+        window.DownloadingFile = function(fileName, progress, downloaded, total) {
+            const fileInfoEl = document.getElementById('fileInfo');
+            if (fileInfoEl && fileName) {
+                // Форматируем размеры (просто для информации)
+                const downloadedMb = (downloaded / 1048576).toFixed(2);
+                const totalMb = (total / 1048576).toFixed(2);
+                fileInfoEl.innerText = `Загрузка: ${fileName} (${downloadedMb} МБ / ${totalMb} МБ)`;
+            }
+            // Также обновляем прогресс
+            window.SetLoadingProgress(progress);
+        };
+
+        // Начало загрузки (может содержать детали сервера)
+        window.LoadingStarted = function(loadingType, map, serverName, steamID, maxPlayers, playerCount) {
+            // Обновляем название сервера, если передано
+            if (serverName) {
+                document.getElementById('serverName').innerText = serverName;
+            }
+            // Обновляем карту
+            if (map) {
+                document.getElementById('mapName').innerText = map;
+            }
+            // Обновляем количество игроков
+            if (maxPlayers !== undefined && playerCount !== undefined) {
+                document.getElementById('playerCount').innerText = playerCount + '/' + maxPlayers;
+            }
+            // Статус
+            window.SetStatusText('Подключение к серверу...');
+        };
+
+        // Завершение загрузки
+        window.LoadingFinished = function() {
+            window.SetStatusText('Загрузка завершена! Вход в игру...');
+            // Можно скрыть прогресс-бар или изменить стиль
+        };
+
+        // Дополнительная функция, если игра её вызывает (иногда используется)
+        window.UpdateStatus = function(progress, statusText) {
+            window.SetLoadingProgress(progress);
+            window.SetStatusText(statusText);
+        };
+
+        // ============================================
+        // 4. Начальное состояние страницы (если функции не вызваны сразу)
+        // ============================================
+        window.addEventListener('load', function() {
+            // Если карта не передана через URL, оставляем как есть
+            if (!mapName) {
+                document.getElementById('mapName').innerText = 'Подготовка...';
+            }
+            // Можно также попробовать получить имя сервера из параметра (например, через ?server=...)
+            // Но по умолчанию оставляем
+        });
     </script>
 </body>
 </html>
-
-
