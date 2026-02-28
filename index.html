@@ -195,6 +195,9 @@
         (function() {
             "use strict";
 
+            // --- Отладка: включаем вывод в консоль ---
+            const DEBUG = true;
+
             // --- Получение списка фоновых изображений из URL (параметр images) ---
             function getBackgroundImagesFromURL() {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -202,14 +205,13 @@
                 if (imagesParam) {
                     return imagesParam.split(',').map(s => s.trim()).filter(s => s.length > 0);
                 }
-                // По умолчанию (можно заменить на свои изображения)
-                return ['index1.png', 'index2.png'];
+                // По умолчанию
+                return ['index1.jpg', 'index2.jpg', 'index3.jpg', 'index4.jpg'];
             }
 
             const backgroundImages = getBackgroundImagesFromURL();
             const container = document.getElementById('loadingContainer');
             let currentIndex = 0;
-            let intervalId = null;
 
             function changeBackground() {
                 if (!container) return;
@@ -220,19 +222,18 @@
                     container.style.backgroundImage = 'linear-gradient(135deg, #1a0000 0%, #000000 100%)';
                 }
             }
-
             changeBackground();
             if (backgroundImages.length > 1) {
-                intervalId = setInterval(changeBackground, 6000);
+                setInterval(changeBackground, 6000);
             }
 
-            // --- Работа с загрузкой GMod (только документированные функции) ---
+            // --- Логика загрузки GMod ---
             const progressFill = document.getElementById('progressFill');
             const progressPercent = document.getElementById('progressPercent');
             const fileCounter = document.getElementById('fileCounter');
             const currentFileEl = document.getElementById('currentFile');
 
-            let totalFiles = 0;      // общее количество файлов
+            let totalFiles = 0;      // общее количество файлов для загрузки
             let remainingFiles = 0;   // сколько ещё нужно скачать
 
             function updateProgress() {
@@ -243,11 +244,13 @@
                 progressFill.style.width = percent + '%';
                 progressPercent.textContent = Math.round(percent) + '%';
                 fileCounter.textContent = (totalFiles - remainingFiles) + ' / ' + totalFiles;
+
+                if (DEBUG) console.log(`Progress updated: ${percent}%, files: ${totalFiles - remainingFiles}/${totalFiles}`);
             }
 
             // Получить имя текущего файла (первого в очереди)
             function getCurrentFileName() {
-                // Пытаемся получить массив оставшихся файлов через документированную функцию GetDownloadables
+                // 1. Пытаемся через GetDownloadables
                 if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
                     try {
                         const files = window.GetDownloadables();
@@ -257,9 +260,8 @@
                     } catch (e) {}
                 }
 
-                // Если не получилось, пробуем через TranslateDownloadableName
+                // 2. Через TranslateDownloadableName (индекс первого оставшегося)
                 if (window.TranslateDownloadableName && typeof window.TranslateDownloadableName === 'function') {
-                    // Определяем индекс первого оставшегося файла
                     if (totalFiles > 0 && remainingFiles > 0) {
                         const firstIndex = totalFiles - remainingFiles; // индекс первого ещё не скачанного
                         try {
@@ -269,26 +271,44 @@
                     }
                 }
 
-                // Если ничего не вышло, возвращаем строку с номером файла
+                // 3. Если ничего не вышло, показываем "Файл N"
                 if (totalFiles > 0 && remainingFiles > 0) {
                     return `Файл ${totalFiles - remainingFiles + 1}`;
                 }
                 return "Загрузка...";
             }
 
-            // Функция, вызываемая GMod для обновления информации о загрузке
+            // --- Функции, вызываемые GMod ---
+
+            // 1. DownloadablesChanged (широко используется, хотя не документирована)
+            window.DownloadablesChanged = function(files) {
+                if (DEBUG) console.log("DownloadablesChanged called with:", files);
+                if (!files || !Array.isArray(files)) return;
+
+                remainingFiles = files.length;
+
+                // Обновляем имя текущего файла
+                if (remainingFiles > 0) {
+                    currentFileEl.textContent = '> ' + (files[0] || getCurrentFileName());
+                } else {
+                    currentFileEl.textContent = '> ЗАГРУЗКА ЗАВЕРШЕНА';
+                }
+
+                updateProgress();
+            };
+
+            // 2. NumDownloadables (документирована)
             window.NumDownloadables = function(num, files) {
-                console.log("NumDownloadables called:", num, files);
+                if (DEBUG) console.log("NumDownloadables called with:", num, files);
 
                 if (typeof num === 'number' && num >= 0) {
                     totalFiles = num;
                 }
 
-                // Если GMod передал массив файлов, используем его
                 if (files && Array.isArray(files)) {
                     remainingFiles = files.length;
                 } else {
-                    // Иначе пытаемся получить список через GetDownloadables
+                    // Если массив не передан, пытаемся получить через GetDownloadables
                     if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
                         try {
                             const currentFiles = window.GetDownloadables();
@@ -312,15 +332,15 @@
                 updateProgress();
             };
 
-            // Дополнительная функция обновления, вызываемая GMod
+            // 3. UpdateDownloadables (документирована)
             window.UpdateDownloadables = function() {
-                console.log("UpdateDownloadables called");
+                if (DEBUG) console.log("UpdateDownloadables called");
                 if (window.NumDownloadables) {
                     window.NumDownloadables(totalFiles);
                 }
             };
 
-            // Заглушка для TranslateDownloadableName на случай, если игра её не предоставляет
+            // Заглушка для TranslateDownloadableName
             if (typeof window.TranslateDownloadableName !== 'function') {
                 window.TranslateDownloadableName = function(index) {
                     return `resource_${index}.dat`;
@@ -335,8 +355,9 @@
                     window.NumDownloadables(0);
                 }
             }, 500);
+
+            if (DEBUG) console.log("Loading page initialized");
         })();
     </script>
 </body>
 </html>
-
