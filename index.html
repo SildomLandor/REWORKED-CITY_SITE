@@ -2,9 +2,9 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Manhunt 2 - Loading</title>
+    <title>GMod Loading Screen</title>
     <style>
-        /* Стили без изменений (такие же, как в предыдущем ответе) */
+        /* Стили в стиле Manhunt 2 (логотип удалён) */
         body {
             margin: 0;
             padding: 0;
@@ -170,32 +170,15 @@
         .downloading-active {
             animation: bloodPulse 1.5s infinite;
         }
-        .manhunt-logo {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: #8b0000;
-            font-size: 24px;
-            font-family: Impact, sans-serif;
-            opacity: 0.3;
-            transform: rotate(5deg);
-            z-index: 2;
-            text-shadow: 2px 2px 0 #2a0000;
-            pointer-events: none;
-        }
-        .manhunt-logo span {
-            color: #5a1e1e;
-        }
     </style>
 </head>
 <body>
     <div class="loading-container" id="loadingContainer">
         <div class="overlay"></div>
-        <div class="manhunt-logo">MANHUNT <span>2</span></div>
 
         <div class="download-panel">
             <div class="download-header">
-                <span></span> CORRUPTED DATA
+                <span></span> ЗАГРУЗКА РЕСУРСОВ
             </div>
             <div class="progress-container">
                 <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
@@ -204,7 +187,7 @@
                 <span id="progressPercent">0%</span>
                 <span id="fileCounter">0 / 0</span>
             </div>
-            <div class="current-file" id="currentFile">> INITIALIZING...</div>
+            <div class="current-file" id="currentFile">> ОЖИДАНИЕ ДАННЫХ...</div>
         </div>
     </div>
 
@@ -217,16 +200,16 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const imagesParam = urlParams.get('images');
                 if (imagesParam) {
-                    // Разделяем по запятой, убираем пустые и обрезаем пробелы
                     return imagesParam.split(',').map(s => s.trim()).filter(s => s.length > 0);
                 }
-                // Если параметр не задан, используем стандартный массив (можно заменить на свои)
-                return ['index1.png', 'index2.png', 'index3.png', 'index4.png'];
+                // По умолчанию (можно заменить на свои изображения)
+                return ['index1.jpg', 'index2.jpg', 'index3.jpg', 'index4.jpg'];
             }
 
             const backgroundImages = getBackgroundImagesFromURL();
             const container = document.getElementById('loadingContainer');
             let currentIndex = 0;
+            let intervalId = null;
 
             function changeBackground() {
                 if (!container) return;
@@ -234,22 +217,22 @@
                     container.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
                     currentIndex = (currentIndex + 1) % backgroundImages.length;
                 } else {
-                    // Если список пуст, ставим чёрный фон
                     container.style.backgroundImage = 'linear-gradient(135deg, #1a0000 0%, #000000 100%)';
                 }
             }
+
             changeBackground();
             if (backgroundImages.length > 1) {
-                setInterval(changeBackground, 6000); // Меняем фон каждые 6 секунд
+                intervalId = setInterval(changeBackground, 6000);
             }
 
-            // --- Логика прогресса загрузки GMod (без демо-режима) ---
+            // --- Работа с загрузкой GMod (только документированные функции) ---
             const progressFill = document.getElementById('progressFill');
             const progressPercent = document.getElementById('progressPercent');
             const fileCounter = document.getElementById('fileCounter');
             const currentFileEl = document.getElementById('currentFile');
 
-            let totalFiles = 0;      // общее количество файлов для загрузки
+            let totalFiles = 0;      // общее количество файлов
             let remainingFiles = 0;   // сколько ещё нужно скачать
 
             function updateProgress() {
@@ -262,211 +245,97 @@
                 fileCounter.textContent = (totalFiles - remainingFiles) + ' / ' + totalFiles;
             }
 
-            // Вызывается игрой при изменении списка скачиваемых файлов (передаётся массив оставшихся)
-            window.DownloadablesChanged = function(files) {
-                console.log('DownloadablesChanged', files);
-                if (!files || !Array.isArray(files)) return;
-
-                remainingFiles = files.length;
-
-                if (remainingFiles > 0) {
-                    // Показываем первый файл из списка как "текущий"
-                    currentFileEl.textContent = '> ' + (files[0] || 'UNKNOWN FILE');
-                } else {
-                    currentFileEl.textContent = '> DOWNLOAD COMPLETE';
-                }
-
-                updateProgress();
-            };
-
-            // Вызывается игрой с общим количеством файлов (и иногда массивом)
-            window.NumDownloadables = function(num, files) {
-                console.log('NumDownloadables', num, files);
-                if (typeof num === 'number' && num >= 0) {
-                    totalFiles = num;
-                }
-                if (files && Array.isArray(files)) {
-                    // Если передан массив, это текущие оставшиеся файлы
-                    remainingFiles = files.length;
-                    if (remainingFiles > 0) {
-                        currentFileEl.textContent = '> ' + (files[0] || 'UNKNOWN');
-                    } else {
-                        currentFileEl.textContent = '> COMPLETE';
-                    }
-                } else {
-                    // Если массив не передан, но totalFiles известен, предполагаем, что все файлы ещё в очереди
-                    if (totalFiles > 0 && remainingFiles === 0) {
-                        remainingFiles = totalFiles; // начальная инициализация
-                    }
-                    // Попробуем получить имя первого файла через TranslateDownloadableName (если доступно)
-                    if (remainingFiles > 0 && window.TranslateDownloadableName) {
-                        try {
-                            const firstName = window.TranslateDownloadableName(0) || 'FILE.DAT';
-                            currentFileEl.textContent = '> ' + firstName;
-                        } catch (e) {}
-                    }
-                }
-                updateProgress();
-            };
-
-            // Дополнительное обновление (вызывается игрой)
-            window.UpdateDownloadables = function() {
-                console.log('UpdateDownloadables');
+            // Получить имя текущего файла (первого в очереди)
+            function getCurrentFileName() {
+                // Пытаемся получить массив оставшихся файлов через документированную функцию GetDownloadables
                 if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
                     try {
                         const files = window.GetDownloadables();
-                        if (files && Array.isArray(files)) {
-                            remainingFiles = files.length;
-                            if (remainingFiles > 0) {
-                                currentFileEl.textContent = '> ' + (files[0] || 'FILE');
-                            } else {
-                                currentFileEl.textContent = '> COMPLETE';
-                            }
-                            updateProgress();
+                        if (files && Array.isArray(files) && files.length > 0) {
+                            return files[0];
                         }
                     } catch (e) {}
+                }
+
+                // Если не получилось, пробуем через TranslateDownloadableName
+                if (window.TranslateDownloadableName && typeof window.TranslateDownloadableName === 'function') {
+                    // Определяем индекс первого оставшегося файла
+                    if (totalFiles > 0 && remainingFiles > 0) {
+                        const firstIndex = totalFiles - remainingFiles; // индекс первого ещё не скачанного
+                        try {
+                            const name = window.TranslateDownloadableName(firstIndex);
+                            if (name && name !== '') return name;
+                        } catch (e) {}
+                    }
+                }
+
+                // Если ничего не вышло, возвращаем строку с номером файла
+                if (totalFiles > 0 && remainingFiles > 0) {
+                    return `Файл ${totalFiles - remainingFiles + 1}`;
+                }
+                return "Загрузка...";
+            }
+
+            // Функция, вызываемая GMod для обновления информации о загрузке
+            window.NumDownloadables = function(num, files) {
+                console.log("NumDownloadables called:", num, files);
+
+                if (typeof num === 'number' && num >= 0) {
+                    totalFiles = num;
+                }
+
+                // Если GMod передал массив файлов, используем его
+                if (files && Array.isArray(files)) {
+                    remainingFiles = files.length;
+                } else {
+                    // Иначе пытаемся получить список через GetDownloadables
+                    if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
+                        try {
+                            const currentFiles = window.GetDownloadables();
+                            if (currentFiles && Array.isArray(currentFiles)) {
+                                remainingFiles = currentFiles.length;
+                            } else {
+                                if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
+                            }
+                        } catch (e) {
+                            if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
+                        }
+                    } else {
+                        if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
+                    }
+                }
+
+                // Обновляем имя текущего файла
+                const fileName = getCurrentFileName();
+                currentFileEl.textContent = '> ' + fileName;
+
+                updateProgress();
+            };
+
+            // Дополнительная функция обновления, вызываемая GMod
+            window.UpdateDownloadables = function() {
+                console.log("UpdateDownloadables called");
+                if (window.NumDownloadables) {
+                    window.NumDownloadables(totalFiles);
                 }
             };
 
             // Заглушка для TranslateDownloadableName на случай, если игра её не предоставляет
-            if (!window.TranslateDownloadableName) {
+            if (typeof window.TranslateDownloadableName !== 'function') {
                 window.TranslateDownloadableName = function(index) {
-                    return 'FILE_' + index + '.BSP';
+                    return `resource_${index}.dat`;
                 };
             }
 
-            // Важно: демо-режим полностью удалён. Страница работает только с реальными вызовами GMod.
+            // Инициируем обновление через секунду после загрузки страницы
+            setTimeout(function() {
+                if (window.UpdateDownloadables) {
+                    window.UpdateDownloadables();
+                } else if (window.NumDownloadables) {
+                    window.NumDownloadables(0);
+                }
+            }, 500);
         })();
     </script>
 </body>
 </html>
-
-
-<script>
-(function() {
-    "use strict";
-
-    // --- Получение фоновых изображений из URL (параметр images) ---
-    function getBackgroundImagesFromURL() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const imagesParam = urlParams.get('images');
-        if (imagesParam) {
-            return imagesParam.split(',').map(s => s.trim()).filter(s => s.length > 0);
-        }
-        return ['index1.jpg', 'index2.jpg', 'index3.jpg', 'index4.jpg']; // По умолчанию
-    }
-
-    const backgroundImages = getBackgroundImagesFromURL();
-    const container = document.getElementById('loadingContainer');
-    let currentIndex = 0;
-
-    function changeBackground() {
-        if (!container || backgroundImages.length === 0) return;
-        container.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
-        currentIndex = (currentIndex + 1) % backgroundImages.length;
-    }
-    changeBackground();
-    if (backgroundImages.length > 1) setInterval(changeBackground, 6000);
-
-    // --- Работа с загрузкой GMod (ТОЛЬКО документированные функции) ---
-    const progressFill = document.getElementById('progressFill');
-    const progressPercent = document.getElementById('progressPercent');
-    const fileCounter = document.getElementById('fileCounter');
-    const currentFileEl = document.getElementById('currentFile');
-
-    let totalFiles = 0;      // Общее количество файлов для загрузки
-    let remainingFiles = 0;   // Сколько осталось
-
-    // Функция для обновления UI на основе текущих данных
-    function refreshDisplay() {
-        let percent = 0;
-        if (totalFiles > 0) {
-            percent = Math.min(100, Math.max(0, ((totalFiles - remainingFiles) / totalFiles) * 100));
-        }
-        progressFill.style.width = percent + '%';
-        progressPercent.textContent = Math.round(percent) + '%';
-        fileCounter.textContent = (totalFiles - remainingFiles) + ' / ' + totalFiles;
-    }
-
-    // Функция для получения имени текущего файла (первого в очереди)
-    function getCurrentFileName() {
-        // Пытаемся получить массив оставшихся файлов через документированную функцию
-        if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
-            try {
-                const files = window.GetDownloadables();
-                if (files && Array.isArray(files) && files.length > 0) {
-                    return files[0];
-                }
-            } catch (e) {}
-        }
-
-        // Если не вышло, пробуем получить имя первого по индексу
-        if (totalFiles > 0 && remainingFiles > 0 && window.TranslateDownloadableName) {
-            const firstIndex = totalFiles - remainingFiles; // Индекс первого оставшегося
-            try {
-                const name = window.TranslateDownloadableName(firstIndex);
-                if (name) return name;
-            } catch (e) {}
-        }
-        return "НЕИЗВЕСТНЫЙ ФАЙЛ";
-    }
-
-    // ОСНОВНАЯ ФУНКЦИЯ: вызывается GMod для обновления статуса
-    window.NumDownloadables = function(num, files) {
-        console.log("NumDownloadables called:", num, files);
-
-        if (typeof num === 'number' && num >= 0) {
-            totalFiles = num;
-        }
-
-        // Если GMod передал массив файлов (редко, но бывает)
-        if (files && Array.isArray(files)) {
-            remainingFiles = files.length;
-        } else {
-            // Если массив не передан, запрашиваем текущий список через GetDownloadables
-            if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
-                try {
-                    const currentFiles = window.GetDownloadables();
-                    if (currentFiles && Array.isArray(currentFiles)) {
-                        remainingFiles = currentFiles.length;
-                    } else {
-                        // Если GetDownloadables не сработал, оставляем previous remaining
-                        // или предполагаем, что все файлы еще впереди при первом вызове
-                        if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
-                    }
-                } catch (e) {
-                    if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
-                }
-            } else {
-                if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
-            }
-        }
-
-        // Обновляем имя текущего файла
-        const fileName = getCurrentFileName();
-        currentFileEl.textContent = '> ' + (fileName || 'ЗАГРУЗКА...');
-
-        refreshDisplay();
-    };
-
-    // ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: вызывается GMod для принудительного обновления
-    window.UpdateDownloadables = function() {
-        console.log("UpdateDownloadables called");
-        if (window.NumDownloadables) {
-            // Просто вызываем NumDownloadables без параметров, чтобы он сам всё перезапросил
-            window.NumDownloadables(totalFiles);
-        }
-    };
-
-    // ИНИЦИАЛИЗАЦИЯ: если функции уже определены, вызываем обновление через секунду
-    setTimeout(function() {
-        if (window.UpdateDownloadables) {
-            window.UpdateDownloadables();
-        } else if (window.NumDownloadables) {
-            window.NumDownloadables(0);
-        }
-    }, 500);
-})();
-</script>
-
-
