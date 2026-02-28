@@ -341,3 +341,132 @@
 </body>
 </html>
 
+
+<script>
+(function() {
+    "use strict";
+
+    // --- Получение фоновых изображений из URL (параметр images) ---
+    function getBackgroundImagesFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const imagesParam = urlParams.get('images');
+        if (imagesParam) {
+            return imagesParam.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        }
+        return ['index1.jpg', 'index2.jpg', 'index3.jpg', 'index4.jpg']; // По умолчанию
+    }
+
+    const backgroundImages = getBackgroundImagesFromURL();
+    const container = document.getElementById('loadingContainer');
+    let currentIndex = 0;
+
+    function changeBackground() {
+        if (!container || backgroundImages.length === 0) return;
+        container.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
+        currentIndex = (currentIndex + 1) % backgroundImages.length;
+    }
+    changeBackground();
+    if (backgroundImages.length > 1) setInterval(changeBackground, 6000);
+
+    // --- Работа с загрузкой GMod (ТОЛЬКО документированные функции) ---
+    const progressFill = document.getElementById('progressFill');
+    const progressPercent = document.getElementById('progressPercent');
+    const fileCounter = document.getElementById('fileCounter');
+    const currentFileEl = document.getElementById('currentFile');
+
+    let totalFiles = 0;      // Общее количество файлов для загрузки
+    let remainingFiles = 0;   // Сколько осталось
+
+    // Функция для обновления UI на основе текущих данных
+    function refreshDisplay() {
+        let percent = 0;
+        if (totalFiles > 0) {
+            percent = Math.min(100, Math.max(0, ((totalFiles - remainingFiles) / totalFiles) * 100));
+        }
+        progressFill.style.width = percent + '%';
+        progressPercent.textContent = Math.round(percent) + '%';
+        fileCounter.textContent = (totalFiles - remainingFiles) + ' / ' + totalFiles;
+    }
+
+    // Функция для получения имени текущего файла (первого в очереди)
+    function getCurrentFileName() {
+        // Пытаемся получить массив оставшихся файлов через документированную функцию
+        if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
+            try {
+                const files = window.GetDownloadables();
+                if (files && Array.isArray(files) && files.length > 0) {
+                    return files[0];
+                }
+            } catch (e) {}
+        }
+
+        // Если не вышло, пробуем получить имя первого по индексу
+        if (totalFiles > 0 && remainingFiles > 0 && window.TranslateDownloadableName) {
+            const firstIndex = totalFiles - remainingFiles; // Индекс первого оставшегося
+            try {
+                const name = window.TranslateDownloadableName(firstIndex);
+                if (name) return name;
+            } catch (e) {}
+        }
+        return "НЕИЗВЕСТНЫЙ ФАЙЛ";
+    }
+
+    // ОСНОВНАЯ ФУНКЦИЯ: вызывается GMod для обновления статуса
+    window.NumDownloadables = function(num, files) {
+        console.log("NumDownloadables called:", num, files);
+
+        if (typeof num === 'number' && num >= 0) {
+            totalFiles = num;
+        }
+
+        // Если GMod передал массив файлов (редко, но бывает)
+        if (files && Array.isArray(files)) {
+            remainingFiles = files.length;
+        } else {
+            // Если массив не передан, запрашиваем текущий список через GetDownloadables
+            if (window.GetDownloadables && typeof window.GetDownloadables === 'function') {
+                try {
+                    const currentFiles = window.GetDownloadables();
+                    if (currentFiles && Array.isArray(currentFiles)) {
+                        remainingFiles = currentFiles.length;
+                    } else {
+                        // Если GetDownloadables не сработал, оставляем previous remaining
+                        // или предполагаем, что все файлы еще впереди при первом вызове
+                        if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
+                    }
+                } catch (e) {
+                    if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
+                }
+            } else {
+                if (remainingFiles === 0 && totalFiles > 0) remainingFiles = totalFiles;
+            }
+        }
+
+        // Обновляем имя текущего файла
+        const fileName = getCurrentFileName();
+        currentFileEl.textContent = '> ' + (fileName || 'ЗАГРУЗКА...');
+
+        refreshDisplay();
+    };
+
+    // ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: вызывается GMod для принудительного обновления
+    window.UpdateDownloadables = function() {
+        console.log("UpdateDownloadables called");
+        if (window.NumDownloadables) {
+            // Просто вызываем NumDownloadables без параметров, чтобы он сам всё перезапросил
+            window.NumDownloadables(totalFiles);
+        }
+    };
+
+    // ИНИЦИАЛИЗАЦИЯ: если функции уже определены, вызываем обновление через секунду
+    setTimeout(function() {
+        if (window.UpdateDownloadables) {
+            window.UpdateDownloadables();
+        } else if (window.NumDownloadables) {
+            window.NumDownloadables(0);
+        }
+    }, 500);
+})();
+</script>
+
+
